@@ -1,156 +1,109 @@
-import numpy as np
-import math
+import sympy as sp
+import tkinter as tk
+from tkinter import scrolledtext
 
-# Define the factorial function
-def factorial(n):
-    return np.math.factorial(n)
+# Function to compute Taylor series approximation term by term
+def taylor_series_approximation(f, a, n_terms=5):
+    x = sp.symbols('x')
+    taylor_expansion = 0
+    steps = []
+    
+    # Compute the terms of the Taylor series
+    for n in range(n_terms):
+        # Compute the nth derivative of f
+        nth_derivative = sp.diff(f, x, n)
+        
+        # Evaluate the nth derivative at the point a
+        nth_derivative_at_a = nth_derivative.subs(x, a)
+        
+        # Compute the nth term
+        term = nth_derivative_at_a * (x - a)**n / sp.factorial(n)
+        
+        # Add the term to the Taylor series
+        taylor_expansion += term
+        
+        # Record the step for display
+        steps.append(f"Term {n+1}: {term}")
+    
+    return taylor_expansion, steps
 
-# Define the Taylor Series approximation for a function f around a point a
-def taylor_series_approx(f, a, n_terms=5):
-    """
-    Approximates the Taylor series of function f around a point a up to n_terms terms.
+# Function to compute Taylor series for the sum of functions
+def sum_functions_taylor_approximation(functions, points, n_terms=5):
+    x = sp.symbols('x')
+    sum_expansion = 0
+    steps = []
     
-    Parameters:
-    f: function - The function to approximate.
-    a: float - The point around which to approximate the function.
-    n_terms: int - The number of terms in the Taylor series approximation.
+    for f, a in zip(functions, points):
+        term_expansion, term_steps = taylor_series_approximation(f, a, n_terms)
+        sum_expansion += term_expansion
+        steps.extend(term_steps)
     
-    Returns:
-    A function that approximates f(x) around a using n_terms terms.
-    """
-    def approx(x):
-        result = 0
-        for n in range(n_terms):
-            # nth derivative evaluated at a
-            derivative = (f(a + 0.0001) - f(a - 0.0001)) / (2 * 0.0001) if n == 0 else (f(a + 0.0001) - f(a - 0.0001)) / (2 * 0.0001)
-            result += (derivative / factorial(n)) * ((x - a) ** n)
-        return result
-    return approx
+    return sum_expansion, steps
 
-# Case 1: Sum of functions (g(x, y, z, ...))
-def case_1_approximation(functions, points, n_terms=5):
-    """
-    Case 1 approximation where the function is a sum of individual functions.
+# Function to compute Taylor series for the product of functions
+def product_functions_taylor_approximation(functions, points, n_terms=5):
+    x = sp.symbols('x')
+    product_expansion = 1
+    steps = []
     
-    Parameters:
-    functions: list of functions - The functions to approximate.
-    points: list of floats - The points around which to approximate each function.
-    n_terms: int - The number of terms in the Taylor series approximation.
+    for f, a in zip(functions, points):
+        term_expansion, term_steps = taylor_series_approximation(f, a, n_terms)
+        product_expansion *= term_expansion
+        steps.extend(term_steps)
     
-    Returns:
-    A function that approximates the sum of functions at the given points.
-    """
-    approximations = []
-    
-    # For each function, compute the Taylor series approximation around the corresponding point
-    for f, point in zip(functions, points):
-        approximations.append(taylor_series_approx(f, point, n_terms))
-    
-    # Return the sum of these approximations
-    def approx(x):
-        return sum(approx(x) for approx in approximations)
-    
-    return approx
+    return product_expansion, steps
 
-# Case 2: Product of functions (g(x, y, z, ...))
-def case_2_approximation(functions, points, n_terms=5):
-    """
-    Case 2 approximation where the function is a product of individual functions.
+# UI setup
+def show_steps():
+    # Retrieve user inputs
+    functions_input = entry_functions.get()
+    points_input = entry_points.get()
     
-    Parameters:
-    functions: list of functions - The functions to approximate.
-    points: list of floats - The points around which to approximate each function.
-    n_terms: int - The number of terms in the Taylor series approximation.
-    
-    Returns:
-    A function that approximates the product of functions at the given points.
-    """
-    approximations = []
-    
-    # For each function, compute the Taylor series approximation around the corresponding point
-    for f, point in zip(functions, points):
-        approximations.append(taylor_series_approx(f, point, n_terms))
-    
-    # Return the product of these approximations
-    def approx(x):
-        result = 1
-        for approximation in approximations:
-            result *= approximation(x)
-        return result
-    
-    return approx
+    try:
+        functions = [sp.sympify(f.strip()) for f in functions_input.split(',')]
+        points = [float(p.strip()) for p in points_input.split(',')]
+        
+        # Calculate the Taylor Series
+        sum_approx, sum_steps = sum_functions_taylor_approximation(functions, points)
+        product_approx, product_steps = product_functions_taylor_approximation(functions, points)
+        
+        # Display the steps and results
+        result_steps.delete(1.0, tk.END)  # Clear previous steps
+        result_steps.insert(tk.END, "Sum Approximation Steps:\n")
+        result_steps.insert(tk.END, "\n".join(sum_steps) + "\n\n")
+        result_steps.insert(tk.END, "Product Approximation Steps:\n")
+        result_steps.insert(tk.END, "\n".join(product_steps) + "\n\n")
+        
+        result_steps.insert(tk.END, f"Final Sum Approximation: {sum_approx}\n")
+        result_steps.insert(tk.END, f"Final Product Approximation: {product_approx}\n")
+    except Exception as e:
+        result_steps.delete(1.0, tk.END)  # Clear previous results
+        result_steps.insert(tk.END, f"Error: {e}")
 
-# Case 3: Sum of different functions (d(x) + f(y) + g(z) + ...)
-def case_3_approximation(functions, points, n_terms=5):
-    """
-    Case 3 approximation for functions like d(x) + f(y) + g(z).
-    
-    Parameters:
-    functions: list of functions - The functions to approximate.
-    points: list of floats - The points around which to approximate each function.
-    n_terms: int - The number of terms in the Taylor series approximation.
-    
-    Returns:
-    A function that approximates the sum of these functions at the given points.
-    """
-    return case_1_approximation(functions, points, n_terms)
+# Set up the main window
+window = tk.Tk()
+window.title("Taylor Series Approximation")
 
-# Case 4: Combination of sum and product of functions
-def case_4_approximation(functions, points, n_terms=5):
-    """
-    Case 4 approximation where some functions are added and some multiplied.
-    
-    Parameters:
-    functions: list of functions - The functions to approximate.
-    points: list of floats - The points around which to approximate each function.
-    n_terms: int - The number of terms in the Taylor series approximation.
-    
-    Returns:
-    A function that approximates the combined sum and product at the given points.
-    """
-    # For simplicity, let's assume the first few functions are summed and the rest are multiplied
-    sum_functions = functions[:len(functions) // 2]
-    product_functions = functions[len(functions) // 2:]
-    
-    sum_approx = case_1_approximation(sum_functions, points[:len(sum_functions)], n_terms)
-    product_approx = case_2_approximation(product_functions, points[len(sum_functions):], n_terms)
-    
-    # Return the combined sum and product approximation
-    def approx(x):
-        return sum_approx(x) * product_approx(x)
-    
-    return approx
+# Create labels and input fields
+label_functions = tk.Label(window, text="Enter Functions (comma-separated):")
+label_functions.grid(row=0, column=0, padx=10, pady=5)
 
-# Case 5: Composite functions with sums and products
-def case_5_approximation(functions, points, n_terms=5):
-    """
-    Case 5 approximation where the function is a composite of sums and products.
-    
-    Parameters:
-    functions: list of functions - The functions to approximate.
-    points: list of floats - The points around which to approximate each function.
-    n_terms: int - The number of terms in the Taylor series approximation.
-    
-    Returns:
-    A function that approximates the composite function at the given points.
-    """
-    sum_functions = functions[:len(functions) // 2]
-    product_functions = functions[len(functions) // 2:]
-    
-    sum_approx = case_1_approximation(sum_functions, points[:len(sum_functions)], n_terms)
-    product_approx = case_2_approximation(product_functions, points[len(sum_functions):], n_terms)
-    
-    # Return the combination of sum and product approximations
-    def approx(x):
-        return sum_approx(x) + product_approx(x)
-    
-    return approx
+entry_functions = tk.Entry(window, width=50)
+entry_functions.grid(row=0, column=1, padx=10, pady=5)
 
-# Example functions and points for testing
-functions = [np.sin, np.cos]
-points = [2, 3]
-approx = case_1_approximation(functions, points, n_terms=5)
+label_points = tk.Label(window, text="Enter Expansion Points (comma-separated):")
+label_points.grid(row=1, column=0, padx=10, pady=5)
 
-# Test the approximation
-x = 2.5
-print(f"Approximated value at x={x}: {approx(x)}")
+entry_points = tk.Entry(window, width=50)
+entry_points.grid(row=1, column=1, padx=10, pady=5)
+
+# Create a button to compute the Taylor series
+compute_button = tk.Button(window, text="Compute Taylor Series", command=show_steps)
+compute_button.grid(row=2, column=0, columnspan=2, pady=10)
+
+# Create a scrollable text area to display the steps and results
+result_steps = scrolledtext.ScrolledText(window, width=80, height=20)
+result_steps.grid(row=3, column=0, columnspan=2, padx=10, pady=5)
+
+# Start the UI loop
+window.mainloop()
